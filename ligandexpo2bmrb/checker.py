@@ -14,7 +14,7 @@ import datetime
 try :
     import sas
 except ImportError :
-    sys.path.append( "/share/dmaziuk/projects/github/SAS/python" )
+    sys.path.append( "/projects/BMRB/SAS/python" )
     import sas
 
 #

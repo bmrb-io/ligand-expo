@@ -14,7 +14,7 @@ import argparse
 try :
     import sas
 except ImportError :
-    sys.path.append( "/share/dmaziuk/projects/github/SAS/python" )
+    sys.path.append( "/projects/BMRB/SAS/python" )
     import sas
 
 from checker import UpdateChecker
@@ -63,7 +63,7 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
         curs2 = db.cursor()
         qry = "select pdbx_initial_date,pdbx_modified_date from ligand_expo.chem_comp where upper(id)=%s"
 
-        ldr = cls( curs = None, verbose = verbose )
+        ldr = cls( curs = curs2, verbose = verbose )
 
         stats = { "total" : 0, "new" : 0, "updated" : 0, "obsolete" : 0, "compound" : 0, "failed" : 0 }
         compids = []
@@ -76,9 +76,12 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
 
             for comp in files :
                 (compid, ext) = os.path.splitext( comp )
+                if ext != ".cif" : continue
                 compid = str( compid ).upper()
 
-                chk = UpdateChecker.read_file( filename = os.path.join( root, comp ), verbose = False ) # verbose )
+                infile = os.path.join( root, comp )
+
+                chk = UpdateChecker.read_file( filename = infile, verbose = False ) # verbose )
                 if verbose :
                     sys.stdout.write( "CC: %s in %s-%s\n" % (compid,root,comp,) )
                     pprint.pprint( chk.__data__ )
@@ -120,7 +123,48 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
                         else :
                             sys.stderr.write( "This should never happen: chem comp %s has no dates and we got here" % (compid,) )
 
+                if updated :
+                    if verbose : 
+                        sys.stdout.write( "-- updated, loading\n" )
+                    for table in CifLoader.TABLES :
+                        if table != "chem_comp" :
+                            sql = "delete from ligand_expo.%s " % (table,)
+                            sql += "where upper(comp_id)=%s"
+                            if verbose : 
+                                sys.stdout.write( sql % (compid,) )
+                            curs.execute( sql, (compid,) )
+                            if verbose : 
+                                sys.stdout.write( " : %d\n" % (curs.rowcount,) )
+                    sql = "delete from ligand_expo.chem_comp where upper(id)=%s"
+                    if verbose : 
+                        sys.stdout.write( sql % (compid,) )
+                    curs.execute( sql, (compid,) )
+                    if verbose : 
+                        sys.stdout.write( " : %d\n" % (curs.rowcount,) )
 
+                    with open( infile, "rU" ) as inf :
+                        lex = sas.StarLexer( inf, bufsize = 0, verbose = verbose )
+                        curs.execute( "begin" )
+                        try :
+                            p = sas.CifParser.parse( lexer = lex, content_handler = ldr, error_handler = ldr, verbose = verbose )
+                        except :
+                            curs.execute( "rollback" )
+                            sys.stderr.write("ERR: Rollback in %s: Exception:\n" % (infile) )
+                            pprint.pprint( sys.exc_info() )
+                            traceback.print_exc()
+
+                    compids.append( compid )
+                    if ldr.has_errors :
+                        sys.stderr.write( "ERR: Rollback: errors in %s\n" % (compid,) )
+                        curs.execute( "rollback" )
+                    else :
+                        curs.execute( "commit" )
+                        if verbose : sys.stdout-write( "--- Committed\n" )
+                        compids.append( compid )
+
+        curs.close()
+        curs2.close()
+        db.close()
         pprint.pprint( stats )
 
     #
@@ -212,6 +256,7 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
         return False
 
     def data( self, tag, tagline, val, valline, delim, inloop ) :
+
 # In CIF
 #   parser fakes start/end and fires the callbacks for loops, but not for free tags.
 # There may be
@@ -222,6 +267,11 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
             sys.stdout.write( "%s : %s @ %d\n" % (tag, val, tagline) )
         table = tag.split( "." )[0].lstrip( "_" )
         col = tag.split( "." )[1]
+
+# skip unmapped tables
+#
+        if not table in self.TABLES : return False
+
         if (table == "chem_comp") and (col == "id") : val = val.upper()
         if col == "comp_id" : val = val .upper()
 
@@ -391,7 +441,7 @@ def main( options, args ) :
                 p.parse()
                 inf.close()
                 compids.append( compid )
-#                print "done"
+
                 if ldr.hasErrors() :
                     print "Rollback: errors in %s" % (compid)
                     curs.execute( "rollback" )

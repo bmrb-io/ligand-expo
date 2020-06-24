@@ -60,6 +60,7 @@ model_Cartn_z_esd text,
 partial_charge text,
 pdbx_align text,
 pdbx_alt_atom_id text,
+pdbx_stnd_atom_id text,
 pdbx_alt_comp_id text,
 pdbx_aromatic_flag text,
 pdbx_component_atom_id text,
@@ -253,4 +254,14 @@ foreign key( comp_id ) references ligand_expo.chem_comp( id ));
 
 create table ligand_expo.pdbx_chem_comp_import (
 comp_id text,
+foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+
+-- pdbx_chem_comp_synonyms
+
+create table ligand_expo.pdbx_chem_comp_synonyms (
+ordinal integer,
+comp_id text,
+name text,
+provenance  text,
+"type" text,
 foreign key( comp_id ) references ligand_expo.chem_comp( id ));
