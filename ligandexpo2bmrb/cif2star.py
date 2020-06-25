@@ -60,7 +60,7 @@ class Cif2Nmr( object ) :
     #
     #
     @classmethod
-    def convert( cls, dsn, verbose = False ) :
+    def convert( cls, dsn, create = False, verbose = False ) :
 
         stats = { "total" : 0, "new" : 0, "updated" : 0, "conflicts" : 0 }
 
@@ -76,6 +76,8 @@ class Cif2Nmr( object ) :
         strcurs = dbconnection.cursor()
 
         cnv = cls( conn = dbconnection, verbose = verbose )
+        if create :
+            cnv.create_tables()
 
         if verbose :
             sys.stdout.write( "%s\n" % (cifqry,) )
@@ -156,6 +158,57 @@ class Cif2Nmr( object ) :
         self._conn = conn
         self._verbose = bool( verbose )
 
+    # (re-)create NMR-STAR
+    #
+    def create_tables( self ) :
+
+        curs = self._conn.cursor()
+
+        drop = 'drop table if exists "%s" cascade'
+        for table in self.STARTABLES :
+            sql = drop % (table,)
+            if self._verbose : sys.stdout.write( sql )
+            curs.execue( sql )
+
+        creat = 'cerate table "%s" (%s)'
+        cols = []
+        qry = 'select tagfield,dbtype from dict.adit_item_tbl where tagcategory=%s order by diciotnaryseq'
+        for table in reversed( self.STARTABLES ) :
+            del cols[:]
+            curs.execute( qry, (table,) )
+            while True :
+                row = curs.fetchone()
+                if row is None : break
+
+# dictionary uses boolean for what previously was yes/no char(3) but the values are still yes/no
+# float: store as text so we don't have to worry about round-offs and significan digits
+#
+                if (row[1].lower() == "float") \
+                or row[1].lower().startswith( "char" ) \
+                or row[1].lower().startswith( "varchar" ) \
+                or row[1].lower().startswith( "vchar" ) \
+                or row[1].lower().startswith( "boolean" ) \
+                or row[1].lower().startswith( "text" ) :
+                    dbtype = "text"
+
+                elif row[1].lower().startswith( "date" ) :
+                    dbtype = "date"
+
+                elif row[1].lower().startswith( "int" ) :
+                    dbtype = "integer"
+
+                else :
+                    sys.stderr.write( "Unsupported DBTYPE %s for _%s.%s" % (row[1], table, row[0],) )
+                    dbtype = "text"
+
+                cols.append( '"%s" %s' % (row[0],dbtype,) )
+
+            if len( cols ) < 1 : raise Exception( "No columns for %s" % (table,) )
+
+            colstr = ",".join( c for c in cols )
+            sql = creat % (table,colstr)
+            if self._verbose : sys.stdout.write( sql )
+            curs.execute( sql )
 
     #
     #
@@ -843,10 +896,12 @@ if __name__ == "__main__" :
     ap.add_argument( "-v", "--verbose", help = "print lots of messages to stdout", dest = "verbose",
         action = "store_true", default = False )
     ap.add_argument( "-d", "--dsn", help = "psycopg2 DSN", dest = "ligand_dsn", required = True )
+    ap.add_argument( "-r", "--recreate", help = "drop and recerate NMR-STAR tables", dest = "create",
+        action = "store_true", default = False )
 
     args = ap.parse_args()
 
-    cnv = Cif2Nmr.convert( dsn = args.ligand_dsn, verbose = args.verbose )
+    cnv = Cif2Nmr.convert( dsn = args.ligand_dsn, create = args.create, verbose = args.verbose )
 
 #
 #
