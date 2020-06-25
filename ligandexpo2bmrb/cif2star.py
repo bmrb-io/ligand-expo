@@ -170,9 +170,9 @@ class Cif2Nmr( object ) :
             if self._verbose : sys.stdout.write( sql )
             curs.execue( sql )
 
-        creat = 'cerate table "%s" (%s)'
+        creat = 'create table "%s" (%s)'
         cols = []
-        qry = 'select tagfield,dbtype from dict.adit_item_tbl where tagcategory=%s order by diciotnaryseq'
+        qry = 'select tagfield,dbtype from dict.adit_item_tbl where tagcategory=%s order by dictionaryseq'
         for table in reversed( self.STARTABLES ) :
             del cols[:]
             curs.execute( qry, (table,) )
@@ -181,7 +181,7 @@ class Cif2Nmr( object ) :
                 if row is None : break
 
 # dictionary uses boolean for what previously was yes/no char(3) but the values are still yes/no
-# float: store as text so we don't have to worry about round-offs and significan digits
+# float: store as text so we don't have to worry about round-offs and significant digits
 #
                 if (row[1].lower() == "float") \
                 or row[1].lower().startswith( "char" ) \
