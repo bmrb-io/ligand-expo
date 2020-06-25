@@ -161,9 +161,24 @@ class Cif2Nmr( object ) :
     def create_tables( self ) :
 
         curs = self._conn.cursor()
+        ALLTABLES = []
+        qry = "select tagcategory,min(dictionaryseq)" \
+            + " from dict.adit_item_tbl" \ 
+            + " where originalcategory in ('entity','chem_comp')" \
+            + " group by tagcategory" \
+            + " order by min(dictionaryseq)"
+        curs.execute( qry )
+        while True :
+            row = curs.fetchone()
+            if row is None : break
+            ALLTABLES.append( row[0] )
+
+# not sure why it's there
+#
+        ALLTABLES.append( "Upload_data" )
 
         drop = 'drop table if exists "%s" cascade'
-        for table in self.STARTABLES :
+        for table in ALLTABLES :
             sql = drop % (table,)
             if self._verbose : sys.stdout.write( sql )
             curs.execue( sql )
@@ -171,7 +186,7 @@ class Cif2Nmr( object ) :
         creat = 'create table "%s" (%s)'
         cols = []
         qry = 'select tagfield,dbtype from dict.adit_item_tbl where tagcategory=%s order by dictionaryseq'
-        for table in reversed( self.STARTABLES ) :
+        for table in reversed( ALLTABLES ) :
             del cols[:]
             curs.execute( qry, (table,) )
             while True :
