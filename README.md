@@ -22,3 +22,13 @@ any local update must touch the "last updated" field.
   * `psycopg2`
   * `SAS`
   * `werkzeug` for the WSGI bit
+
+### Howto
+
+1. Download ligand expo mmCIF files (`ligand_dict_v3`) from RCSB.
+
+2. Run `PDBX.sql` to create mmCIF tables: `psql -d $DB -U $ROLE -f PDBX.sql`
+
+3. Load CIF: `ligandexpo2bmrb/load_cif.py -d "dbname='$DB' user='$ROLE'" -i /some/dir/ligand-dict-v3`
+
+4. Convert to NMR-STAR: `ligandexpo2bmrb/cif2star.py -d "dbname='$DB' user='$ROLE'"`

@@ -1,8 +1,13 @@
 #!/usr/bin/python -u
 #
+# -*- coding: utf-8 -*-
+#
 # Load Ligand Expo data into pdbx(-ish) schema
 # 
 #
+
+from __future__ import absolute_import
+
 import sys
 import os
 import psycopg2

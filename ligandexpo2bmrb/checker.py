@@ -5,6 +5,8 @@
 # Read modified date from mmCIF
 #
 
+from __future__ import absolute_import
+
 import sys
 import os
 import re
