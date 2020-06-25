@@ -20,9 +20,7 @@ import psycopg2
 import re
 import traceback
 import pprint
-
-from optparse import OptionParser
-import ConfigParser
+import argparse
 
 #
 # just a namespace wrapper
@@ -93,7 +91,7 @@ class Cif2Nmr( object ) :
             if verbose : 
                 sys.stdout.write( "%s\n" % (strqry % (row1[0],),) )
 
-            strcurs.execute( strqry, (row1[0],) )
+            strcurs.execute( strqry, (cifrow[0],) )
             strrow = strcurs.fetchone()
             if strrow is None :
                 cnv.update_record( cifrow[0], insert = True )
