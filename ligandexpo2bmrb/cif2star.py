@@ -5,7 +5,7 @@
 # convert Ligand Expo from mmCIF to NMR-STAR 3.1 schema
 #
 # there is a tag map in NMR-STAR dictionary, 
-# but in this case it's easier to not use it
+# but in this case it's easier to roll our own
 #
 # FIXME: I originally thought to use in-place updates but never got a round tuit
 # so this only does delete + insert but some of the update code is still here.

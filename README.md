@@ -32,3 +32,5 @@ any local update must touch the "last updated" field.
 3. Load CIF: `ligandexpo2bmrb/load_cif.py -d "dbname='$DB' user='$ROLE'" -i /some/dir/ligand-dict-v3`
 
 4. Convert to NMR-STAR: `ligandexpo2bmrb/cif2star.py -d "dbname='$DB' user='$ROLE'"`
+
+5. Make "entity" saveframes: `ligandexpo2bmrb/entity.py -d "dbname='$DB' user='$ROLE'"`
