@@ -160,10 +160,11 @@ class Cif2Nmr( object ) :
     #
     def create_tables( self ) :
 
+#        self._verbose = True
         curs = self._conn.cursor()
         ALLTABLES = []
         qry = "select tagcategory,min(dictionaryseq)" \
-            + " from dict.adit_item_tbl" \ 
+            + " from dict.adit_item_tbl" \
             + " where originalcategory in ('entity','chem_comp')" \
             + " group by tagcategory" \
             + " order by min(dictionaryseq)"
@@ -177,13 +178,18 @@ class Cif2Nmr( object ) :
 #
         ALLTABLES.append( "Upload_data" )
 
-        drop = 'drop table if exists "%s" cascade'
-        for table in ALLTABLES :
-            sql = drop % (table,)
-            if self._verbose : sys.stdout.write( sql )
-            curs.execue( sql )
+#        drop = 'drop table if exists "%s" cascade'
+#        for table in ALLTABLES :
+#            sql = drop % (table,)
+#            if self._verbose : sys.stdout.write( sql )
+#            curs.execute( sql )
+        curs.execute( "drop schema if exists chem_comp cascade" )
+        curs.execute( "create schema chem_comp" )
+        curs.execute( "create sequence chem_comp.bondid_seq" )
+        curs.execute( "create sequence chem_comp.entityid_seq" )
+        curs.execute( "create sequence chem_comp.sfid_seq" )
 
-        creat = 'create table "%s" (%s)'
+        creat = 'create table chem_comp."%s" (%s)'
         cols = []
         qry = 'select tagfield,dbtype from dict.adit_item_tbl where tagcategory=%s order by dictionaryseq'
         for table in reversed( ALLTABLES ) :
@@ -214,7 +220,17 @@ class Cif2Nmr( object ) :
                     sys.stderr.write( "Unsupported DBTYPE %s for _%s.%s" % (row[1], table, row[0],) )
                     dbtype = "text"
 
-                cols.append( '"%s" %s' % (row[0],dbtype,) )
+                if (table == "Chem_comp_bond") and (row[0] == "ID") :
+                    cols.append( '"%s" %s default nextval(\'chem_comp.bondid_seq\')' % (row[0],dbtype,) )
+                elif (table == "Entity") and (row[0] == "ID") :
+                    cols.append( '"%s" %s default nextval(\'chem_comp.entityid_seq\')' % (row[0],dbtype,) )
+                elif row[0] == "Sf_ID" :
+                    if( table in "Entity", "Chem_comp" ) :
+                        cols.append( '"%s" %s default nextval(\'chem_comp.sfid_seq\')' % (row[0],dbtype,) )
+                    else :
+                        cols.append( '"%s" %s default currval(\'chem_comp.sfid_seq\')' % (row[0],dbtype,) )
+                else :
+                    cols.append( '"%s" %s' % (row[0],dbtype,) )
 
             if len( cols ) < 1 : raise Exception( "No columns for %s" % (table,) )
 
@@ -222,6 +238,10 @@ class Cif2Nmr( object ) :
             sql = creat % (table,colstr)
             if self._verbose : sys.stdout.write( sql )
             curs.execute( sql )
+
+        curs.execute( "commit" )
+        curs.close()
+#        self._verbose = False
 
     #
     #
@@ -291,7 +311,7 @@ class Cif2Nmr( object ) :
             curs.execute( "select distinct \"Descriptor\" from chem_comp.\"Chem_comp_descriptor\" where \"Type\"='InChI' and \"Comp_ID\"=%s", (compid,) )
             row = curs.fetchone()
             if row is not None :
-                curs.execute( "update chem_comp.\"Chem_comp\" set \"InCHi_code\"=%s where \"ID\"=%s", (row[0], compid,) )
+                curs.execute( "update chem_comp.\"Chem_comp\" set \"InChI_code\"=%s where \"ID\"=%s", (row[0], compid,) )
 #        curs.execute( """update chem_comp.\"Chem_comp\" set \"InCHi_code\"=
 #(select distinct \"Descriptor\" from chem_comp.\"Chem_comp_descriptor\" where \"Type\"='InChI' and \"Comp_ID\"=%s limit 1) 
 #where \"ID\"=%s""",  (compid, compid,) )
@@ -306,11 +326,11 @@ class Cif2Nmr( object ) :
                 curs.execute( "update chem_comp.\"Chem_comp\" set \"Initial_date\"=%s where \"ID\"=%s", (date.today(),compid,) )
                 curs.execute( "update chem_comp.\"Chem_comp\" set \"Modified_date\"=%s where \"ID\"=%s", (date.today(),compid,) )
 
-            conn.commit()
+            self._conn.commit()
 
         except :
-            sys.stderr.wriet( "\nRollback! Exception %s %s\n\n" % (( insert and "inserting" or "updating"), compid,) )
-            conn.rollback()
+            sys.stderr.write( "\nRollback! Exception %s %s\n\n" % (( insert and "inserting" or "updating"), compid,) )
+            self._conn.rollback()
             traceback.print_exc()
 
 ####################################################
@@ -334,15 +354,16 @@ class Cif2Nmr( object ) :
             if row is None : return
             for i in range( len( row ) ) :
                 if row[i] is None : vals.append( None )
-                val = str( row[i] ).strip()
-                if val in ("", ".", "?") : vals.append( None )
+                else :
+                    val = str( row[i] ).strip()
+                    if val in ("", ".", "?") : vals.append( None )
 
 # _flag tags
-                elif curs.description[i][0][-5:] == "_flag" :
-                    if val.upper() == "N" : vals.append( "no" )
-                    elif val.upper() == "Y" : vals.append( "yes" )
+                    elif curs.description[i][0][-5:] == "_flag" :
+                        if val.upper() == "N" : vals.append( "no" )
+                        elif val.upper() == "Y" : vals.append( "yes" )
+                        else : vals.append( val )
                     else : vals.append( val )
-                else : vals.append( val )
 
 # if not insert, sql will end in "where comp_id=?"
 
@@ -474,7 +495,7 @@ pdbx_processing_site
         if self._verbose : 
             sys.stdout.write( qry % (compid,) )
 
-        curs = conn.cursor()
+        curs = self._conn.cursor()
         curs.execute( qry, (compid,) )
         row = curs.fetchone()
         if row is None : return
@@ -485,25 +506,32 @@ pdbx_processing_site
         vals = []
         for i in range( len( row ) ) :
             val = row[i]
-            if val is None : vals.append( None )
+            if val is None : 
+                vals.append( None )
+                continue
             val = str( val ).strip()
-            if val  in ("", ".", "?") : vals.append( None )
+            if val  in ("", ".", "?") : 
+                vals.append( None )
+                continue
 
 # _flag tags: Y/N -> yes/no
 
-            elif curs.description[i][0][-5:] == "_flag" :
+            if curs.description[i][0][-5:] == "_flag" :
                 if val.upper() == "N" : vals.append( "no" )
                 elif val.upper() == "Y" : vals.append( "yes" )
                 else : vals.append( val )
+                continue
 
-            else : vals.append( val )
+            vals.append( val )
 
 # framecode is the last one when inserting
 
         if insert : vals.append( "chem_comp_%s" % compid )
         else : vals.append( compid )
         if self._verbose : 
-            sys.stdout.write( sql % tuple( vals ) )
+            sys.stdout.write( sql )
+            sys.stdout.write( " : " )
+            pprint.pprint( vals )
         curs.execute( sql, tuple( vals ) )
         if self._verbose : 
             sys.stdout.write( ": %d\n" % (curs.rowcount,) )
@@ -693,8 +721,8 @@ pdbx_ordinal
         if self._verbose : 
             sys.stdout.write( qry % (compid,) )
         vals = []
-        curs = conn.cursor()
-        curs2 = conn.cursor()
+        curs = self._conn.cursor()
+        curs2 = self._conn.cursor()
 
         curs.execute( qry, (compid,) )
         while True :
@@ -703,16 +731,17 @@ pdbx_ordinal
             del vals[:]
             for i in range( len( row ) ) :
                 if row[i] is None : vals.append( None )
-                val = str( row[i] ).strip()
-                if val in ("", ".", "?") : vals.append( None )
+                else :
+                    val = str( row[i] ).strip()
+                    if val in ("", ".", "?") : vals.append( None )
 
 # _flag tags
 
-                elif curs.description[i][0][-5:] == "_flag" :
-                    if val.upper() == "N" : vals.append( "no" )
-                    elif val.upper() == "Y" : vals.append( "yes" )
+                    elif curs.description[i][0][-5:] == "_flag" :
+                        if val.upper() == "N" : vals.append( "no" )
+                        elif val.upper() == "Y" : vals.append( "yes" )
+                        else : vals.append( val )
                     else : vals.append( val )
-                else : vals.append( val )
 
             if not insert : vals.append( compid )
 
@@ -768,13 +797,13 @@ comp_id
             sys.stdout.write( "\n" )
 
         vals = []
-        curs = conn.cursor()
+        curs = self._conn.cursor()
 
 # reset bond numbers (mmCIF doesn; thave 'em)
 #
         curs.execute( "alter sequence chem_comp.bondid_seq restart with 1" )
 
-        curs2 = conn.cursor()
+        curs2 = self._conn.cursor()
 
         curs.execute( qry, (compid,) )
         while True :
@@ -785,16 +814,17 @@ comp_id
             del vals[:]
             for i in range( len( row ) ) :
                 if row[i] is None : vals.append( None )
-                val = str( row[i] ).strip()
-                if val in ("", ".", "?") : vals.append( None )
+                else :
+                    val = str( row[i] ).strip()
+                    if val in ("", ".", "?") : vals.append( None )
 
 # _flag tags
 
-                elif curs.description[i][0][-5:] == "_flag" :
-                    if val.upper() == "N" : vals.append( "no" )
-                    elif val.upper() == "Y" : vals.append( "yes" )
+                    elif curs.description[i][0][-5:] == "_flag" :
+                        if val.upper() == "N" : vals.append( "no" )
+                        elif val.upper() == "Y" : vals.append( "yes" )
+                        else : vals.append( val )
                     else : vals.append( val )
-                else : vals.append( val )
 
             if not insert : vals.append( compid )
 
@@ -806,8 +836,8 @@ comp_id
 
             curs2.execute( """update chem_comp."Chem_comp_bond" set "ID"="Ordinal" where "Comp_ID"=%s""", (compid,) )
 
-            curs2.close()
-            curs.close()
+        curs2.close()
+        curs.close()
 
 ###################################################################
     #
