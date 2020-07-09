@@ -57,7 +57,7 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
     #
     #
     @classmethod
-    def load_chem_comps( cls, ligand_dir, dsn, verbose = False ) :
+    def update_chem_comps( cls, ligand_dir, dsn, verbose = False ) :
 
         cifdir = os.path.realpath( ligand_dir )
         if not os.path.isdir( cifdir ) : 
@@ -70,8 +70,10 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
 
         ldr = cls( curs = curs2, verbose = verbose )
 
-        stats = { "total" : 0, "new" : 0, "updated" : 0, "obsolete" : 0, "compound" : 0, "failed" : 0 }
+# keep IDs for clean-up later
+#
         compids = []
+        stats = { "total" : 0, "new" : 0, "updated" : 0, "obsolete" : 0, "compound" : 0, "failed" : 0 }
 
         for (root, dirs, files) in os.walk( cifdir ) :
             if "FULL" in dirs :
@@ -103,6 +105,7 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
                     stats["obsolete"] += 1
                     continue
 
+                compids.append( compid )
                 updated = False
                 if verbose : 
                     sys.stdout.write( qry % (compid,) )
@@ -167,8 +170,34 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
                         if verbose : sys.stdout-write( "--- Committed\n" )
                         compids.append( compid )
 
-        curs.close()
         curs2.close()
+# done updating, collect garbage
+#
+        obsolete = []
+        idstr = "','".join( i for i in compids )
+        qry = "select upper(id) from ligand_expo.chem_comp where upper(id) not in ('%s')" % (idstr,)
+        curs.execute( qry )
+        while True :
+            row = curs.fetchone()
+            if row is None : break
+            obsolete.append( row[0] )
+
+        stats["obsolete"] = len( obsolete )
+
+# "on delete cascade" should take care of child tables
+#
+        idstr = "','".join( i for i in obsolete )
+        sql = "delete from ligand_expo.chem_comp where upper(id) in ('%s')" % (idstr,)
+        curs.execute( sql )
+#        if verbose :
+        sys.stdout.write( "%s : %d rows\n" % (sql,curs.rowcount) )
+
+        sql = """delete from chem_comp."Chem_comp" where "ID" in ('%s')""" % (idstr,)
+        curs.execute( sql )
+#        if verbose :
+        sys.stdout.write( "%s : %d rows\n" % (sql,curs.rowcount) )
+
+        curs.close()
         db.close()
         pprint.pprint( stats )
 
@@ -359,111 +388,6 @@ class CifLoader( sas.ContentHandler, sas.ErrorHandler ) :
 #
 #
 #
-def main( options, args ) :
-
-    global TABLES
-
-    if options.conffile == None : raise Exception( "Config file name missing" )
-
-    props = ConfigParser.SafeConfigParser()
-    props.read( options.conffile )
-    dsn = props.get( "ligand_lib", "dsn" )
-    del props
-
-# files to skip
-#
-    re_removed = re.compile( r"/REMOVED/" )
-    re_full = re.compile( r"/FULL/component\.cif$" )
-
-    cnt = 0
-    compids = []
-    db = psycopg2.connect( dsn )
-    curs = db.cursor()
-    curs2 = db.cursor()
-    qry = "select pdbx_initial_date,pdbx_modified_date from ligand_expo.chem_comp where upper(id)=%s"
-    for infile in args :
-        try :
-            m = re_removed.search( infile )
-            if m : continue
-            m = re_full.search( infile )
-            if m : continue
-
-            compid = os.path.splitext( os.path.split( infile )[1] )[0]
-
-            if options.verbose : print "parsing", compid, infile
-            inf = open( infile )
-            lex = STARLexer( inf )
-            chk = mod_date.UpdateChecker()
-
-            chk.verbose = options.verbose
-            p = CifParser.parser( lex, chk, chk )
-            p.parse()
-            inf.close()
-            cnt += 1
-            if options.verbose : print "obs: %s, cx: %s, ini: %s, mod: %s" \
-                % (chk.obsolete,chk.compound,chk.initial_date,chk.modified_date)
-            if chk.obsolete or chk.compound : continue
-
-            updated = False
-            if options.verbose : print qry % (compid.upper(),)
-            curs.execute( qry, (compid.upper(),) )
-            row = curs.fetchone()
-            if options.verbose : print row
-            if row == None : updated = True
-            else :
-                if chk.modified_date != None :
-                    if row[1] != None :
-                        if chk.modified_date > row[1] : updated = True
-                    else : updated = True
-                else :
-                    if chk.initial_date != None :
-                        if row[0] != None :
-                            if chk.initial_date > row[0] : updated = True
-                        else : updated = True
-                    else :
-                        print "This should never happen: chem comp", compid, "has no dates and we got here"
-
-            if updated :
-                if options.verbose : print "updated, loading"
-                for table in TABLES :
-                    if table != "chem_comp" :
-                        sql = "delete from ligand_expo.%s " % (table)
-                        sql += "where upper(comp_id)=%s"
-                        if options.verbose : print (sql % (compid.upper(),)),
-                        curs.execute( sql, (compid.upper(),) )
-                        if options.verbose : print curs.rowcount
-                sql = "delete from ligand_expo.chem_comp where upper(id)=%s"
-                if options.verbose : print (sql % (compid.upper(),)),
-                curs.execute( sql, (compid.upper(),) )
-                if options.verbose : print curs.rowcount
-
-                inf = open( infile )
-                lex = STARLexer( inf )
-                ldr = CifLoader( curs )
-                ldr.verbose = options.verbose
-                p = CifParser.parser( lex, ldr, ldr )
-                curs.execute( "begin" )
-                p.parse()
-                inf.close()
-                compids.append( compid )
-
-                if ldr.hasErrors() :
-                    print "Rollback: errors in %s" % (compid)
-                    curs.execute( "rollback" )
-                else :
-                    curs.execute( "commit" )
-                    if options.verbose : print "Committed"
-
-        except :
-            curs.execute( "rollback" )
-            print ("Rollback in %s: Exception:" % (infile)), sys.exc_info()
-            traceback.print_exc()
-
-    curs.close()
-    curs2.close()
-    db.close()
-    print "%d checked, %d updated" % (cnt, len( compids ))
-
 #
 #
 #
@@ -477,7 +401,7 @@ if __name__ == "__main__" :
 
     args = ap.parse_args()
 
-    rc = CifLoader.load_chem_comps( ligand_dir = args.ligand_dir, dsn = args.ligand_dsn, verbose = args.verbose )
+    rc = CifLoader.update_chem_comps( ligand_dir = args.ligand_dir, dsn = args.ligand_dsn, verbose = args.verbose )
 
 
 # eof

@@ -74,7 +74,8 @@ pdbx_stereo_config text,
 substruct_code text,
 type_symbol text,
 unique( comp_id, atom_id ),
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- chem_comp_angle
 
@@ -87,9 +88,10 @@ value_angle text,
 value_angle_esd text,
 value_dist text,
 value_dist_esd text,
-foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_3 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_3 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- chem_comp_bond
 
@@ -103,8 +105,9 @@ pdbx_stereo_config text,
 value_dist text,
 value_dist_esd text,
 value_order text,
-foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- chem_comp_chir
 
@@ -119,7 +122,8 @@ volume_flag text,
 volume_three text,
 volume_three_esd text,
 unique (comp_id, atom_id, id ),
-foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- chem_comp_chir_atom
 
@@ -128,7 +132,8 @@ atom_id text,
 chir_id text,
 comp_id text,
 dev text,
-foreign key( chir_id, comp_id, atom_id ) references ligand_expo.chem_comp_chir( id, comp_id, atom_id ));
+foreign key( chir_id, comp_id, atom_id ) references ligand_expo.chem_comp_chir( id, comp_id, atom_id ) on delete cascade
+);
 
 -- chem_comp_plane
 
@@ -138,7 +143,8 @@ id text,
 number_atoms_all integer,
 number_atoms_nh integer,
 unique( comp_id, id ),
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- chem_comp_plane_atom
 
@@ -147,8 +153,9 @@ atom_id text,
 comp_id text,
 dist_esd text,
 plane_id text,
-foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( plane_id, comp_id ) references ligand_expo.chem_comp_plane( id, comp_id ));
+foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( plane_id, comp_id ) references ligand_expo.chem_comp_plane( id, comp_id ) on delete cascade
+);
 
 -- chem_comp_tor
 
@@ -160,10 +167,11 @@ atom_id_4 text,
 comp_id text,
 id text,
 unique( comp_id, id ),
-foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_3 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_4 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_3 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_4 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- chem_comp_tor_value
 
@@ -174,7 +182,8 @@ comp_id text,
 dist text,
 dist_esd text,
 tor_id text,
-foreign key( tor_id, comp_id ) references ligand_expo.chem_comp_tor( id, comp_id ));
+foreign key( tor_id, comp_id ) references ligand_expo.chem_comp_tor( id, comp_id ) on delete cascade
+);
 
 -- pdbx_chem_comp_atom_edit
 
@@ -185,7 +194,8 @@ edit_atom_id text,
 edit_atom_value text,
 edit_op text,
 ordinal integer,
-foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- pdbx_chem_comp_atom_feature
 
@@ -193,7 +203,8 @@ create table ligand_expo.pdbx_chem_comp_atom_feature (
 atom_id text,
 comp_id text,
 feature_type text,
-foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- pdbx_chem_comp_audit
 
@@ -204,7 +215,8 @@ comp_id text,
 date date,
 details text,
 processing_site text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- pdbx_chem_comp_bond_edit
 
@@ -215,8 +227,9 @@ comp_id text,
 edit_bond_value text,
 edit_op text,
 ordinal integer,
-foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ),
-foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ));
+foreign key( comp_id, atom_id_1 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade,
+foreign key( comp_id, atom_id_2 ) references ligand_expo.chem_comp_atom( comp_id, atom_id ) on delete cascade
+);
 
 -- pdbx_chem_comp_descriptor
 
@@ -227,7 +240,8 @@ ordinal integer,
 program text,
 program_version text,
 type text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- pdbx_chem_comp_feature
 
@@ -237,7 +251,8 @@ source text,
 support text,
 type text,
 value text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- pdbx_chem_comp_identifier
 
@@ -248,13 +263,15 @@ ordinal integer,
 program text,
 program_version text,
 type text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- pdbx_chem_comp_import
 
 create table ligand_expo.pdbx_chem_comp_import (
 comp_id text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
 
 -- pdbx_chem_comp_synonyms
 
@@ -264,4 +281,5 @@ comp_id text,
 name text,
 provenance  text,
 "type" text,
-foreign key( comp_id ) references ligand_expo.chem_comp( id ));
+foreign key( comp_id ) references ligand_expo.chem_comp( id ) on delete cascade
+);
