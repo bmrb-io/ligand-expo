@@ -19,7 +19,7 @@ import argparse
 try :
     import sas
 except ImportError :
-    sys.path.append( "/share/dmaziuk/projects/github/SAS/python" ) # "/projects/BMRB/SAS/python" )
+    sys.path.append( "/projects/BMRB/SAS/python" )
     import sas
 
 from checker import UpdateChecker
